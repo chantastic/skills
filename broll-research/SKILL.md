@@ -1,3 +1,8 @@
+---
+name: broll-research
+description: Research and collect b-roll assets from video transcripts. Extracts entities (companies, products, people) and downloads logos, screenshots, social media posts, and videos. Generates FCPXML markers for video editing. Use when preparing b-roll for a video project.
+---
+
 # B-Roll Research Skill
 
 Research and collect b-roll assets from video transcripts. Extracts entities (companies, products, people) and downloads logos, screenshots, social media posts, and videos. Generates FCPXML markers for video editing.
@@ -78,10 +83,10 @@ This skill orchestrates multiple specialized agents to:
 
 ### Phase 2: Entity Extraction (Sequential)
 
-**Spawn entity-extractor agent**:
+**Run entity extraction**:
+- Use the Python script `scripts/extract-entities.py` with spaCy NER
 - Pass transcript path and output path (`./broll-research/entities.json`)
-- Agent uses Python script `scripts/extract-entities.py` with spaCy NER
-- **Agent must run commands via nix-shell**: All bash commands should be wrapped with `nix-shell ~/skills/broll-research/shell.nix --run "COMMAND"`
+- **All commands must run via nix-shell**: Wrap with `nix-shell ~/skills/broll-research/shell.nix --run "COMMAND"`
 - **Wait for completion** before proceeding (output needed for next phase)
 
 **Expected output**: `entities.json` with format:
@@ -100,28 +105,26 @@ This skill orchestrates multiple specialized agents to:
 
 ### Phase 3: Asset Collection (Parallel)
 
-**Spawn 4 asset collection agents IN PARALLEL**:
+**Run 4 asset collection tasks**:
 
-All agents receive the same inputs:
+All tasks use the same inputs:
 - Path to `entities.json`
 - Output directory (e.g., `./broll-research/assets/`)
 - Number of entities to process (recommend: top 10 by relevance_score)
 
-**Parallel agents**:
-1. **logo-collector** → Searches and downloads company/product logos
-2. **screenshot-collector** → Captures website screenshots using Playwright
-3. **social-collector** → Screenshots social media posts (Twitter, LinkedIn)
-4. **video-collector** → Downloads YouTube clips with yt-dlp
+**Tasks** (run in parallel where possible):
+1. **Logo collection** → Follow `agents/logo-collector.md` to search and download company/product logos
+2. **Screenshot collection** → Follow `agents/screenshot-collector.md` to capture website screenshots using Playwright
+3. **Social media collection** → Follow `agents/social-collector.md` to screenshot social media posts (Twitter, LinkedIn)
+4. **Video collection** → Follow `agents/video-collector.md` to download YouTube clips with yt-dlp
 
-**IMPORTANT**: Spawn all 4 agents in a SINGLE message using multiple Task tool calls. This ensures true parallel execution.
-
-**Wait for all collectors** to complete before proceeding to marker generation.
+**Wait for all collection tasks** to complete before proceeding to marker generation.
 
 ### Phase 4: FCPXML Marker Generation (Sequential)
 
-**Spawn marker-generator agent**:
+**Generate FCPXML markers** by following `agents/marker-generator.md`:
 - Pass paths: `entities.json`, `assets/` directory, output `markers.fcpxml`
-- Agent scans assets directories and generates FCPXML chapter markers
+- Scan assets directories and generate FCPXML chapter markers
 - Each marker contains:
   - Start time (from entity's first_mention_ms)
   - Marker label (entity name + asset type)
@@ -222,17 +225,17 @@ No inter-agent communication needed - all run independently.
 
 **Basic usage** (use existing transcript):
 ```
-claude-code /broll-research
+/skill:broll-research
 ```
 
 **Specify transcript**:
 ```
-claude-code /broll-research --transcript /path/to/transcript.json
+/skill:broll-research --transcript /path/to/transcript.json
 ```
 
 **Specify output directory**:
 ```
-claude-code /broll-research --transcript /tmp/audio.json --output /Users/chan/Videos/project1/
+/skill:broll-research --transcript /tmp/audio.json --output /Users/chan/Videos/project1/
 ```
 
 ## Future Enhancements
